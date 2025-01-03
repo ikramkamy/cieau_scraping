@@ -1,0 +1,6 @@
+/node_modules
+*.xlsx
+/html
+/excel
+*.csv
+/csv
