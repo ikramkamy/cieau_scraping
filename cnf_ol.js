@@ -2,18 +2,19 @@ const fs = require('fs');
 const path = require('path');
 const cheerio = require('cheerio');
 const XLSX = require('xlsx');
-const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 
-const htmlFolderPath = './html/2025-01-03';
+// Chemin vers le dossier contenant les fichiers HTML
+const htmlFolderPath = './html/2025-01-03'; // Remplacez par le chemin de votre dossier
 
+// Tableau pour stocker toutes les données à inclure dans l'Excel final
 const allData = [];
-const maxRowsPerFile = 500000;
+
 // Fonction asynchrone pour lire et traiter les fichiers HTML
 async function processFiles() {
     try {
         // Lire tous les fichiers du dossier
         const files = await fs.promises.readdir(htmlFolderPath);
-
+        
         // Filtrer les fichiers HTML
         const htmlFiles = files.filter(file => path.extname(file).toLowerCase() === '.html');
 
@@ -42,8 +43,8 @@ async function processFiles() {
                 COMMUNE: "",
                 DATE: "",
                 TOTAL: 1,
-                CBL: "",
-                NBL: "",
+                CBL: "",	
+                NBL: "",	
                 CCL: "",
                 NCL: "",
                 CBR: "",
@@ -77,9 +78,7 @@ async function processFiles() {
                 const value = $(row).find('td').text().trim();
 
                 if (key === 'Conclusions sanitaires') {
-                    const cleanedValue = value.replace(/[\n\r\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
-                    dataEntry['CONCLUSION'] = cleanedValue;
-
+                    dataEntry['CONCLUSION'] = value;
                 } else if (key === 'Conformité bactériologique') {
                     if (value == 'oui') {
                         dataEntry['CBL'] = "1";
@@ -101,7 +100,7 @@ async function processFiles() {
                     } else {
                         dataEntry['CCL'] = "";
                         dataEntry['NCL'] = "";
-                    }
+                    }                
                 } else if (key === 'Respect des références de qualité') {
                     if (value == 'oui') {
                         dataEntry['CBR'] = "1";
@@ -121,58 +120,22 @@ async function processFiles() {
                     }
                 }
             });
-            if (dataEntry['CBL'] !== "" &&
-                dataEntry['NBL'] !== "" && dataEntry['DATE'] !== "" && dataEntry['CONCLUSION'] !== "") {
 
-                allData.push(dataEntry);
-
-
-            } else {
-                //do nothing
-            }
-      
-            allData.sort((a, b) => {
-               
-                if (a.DATE === b.DATE) {
-                    return b.HEURE.localeCompare(a.HEURE); 
-                }
-                return b.DATE.localeCompare(a.DATE); 
-            });
-
-            // Use a Map to keep track of unique INSEE values
-            const uniqueData = new Map();
-
-            for (const row of allData) {
-                if (!uniqueData.has(row.INSEE)) {
-                    // Add only the first occurrence of INSEE (most recent row)
-                    uniqueData.set(row.INSEE, row);
-                }
-            }
-
-            // Convert the Map values back to an array
-            const result = Array.from(uniqueData.values());
-
-            // Log the result
-            console.log("Filtered data:", result);
-
-            //console.log('dataEntry', dataEntry)
+            allData.push(dataEntry);
+            console.log("dataEntry",dataEntry)
             console.log(processedFiles)
             processedFiles++;
 
             // Si tous les fichiers ont été traités, générer l'Excel
-            // console.log("processedFiles",processedFiles)
-            // console.log('htmlFiles.length',htmlFiles.length)
+            console.log("processedFiles",processedFiles)
+            console.log('htmlFiles.length',htmlFiles.length)
             if (processedFiles === htmlFiles.length) {
                 // Générer un fichier Excel avec les données
-
                 const outputFileName = `CNF_${new Date().toISOString()}.xlsx`;
-                const outputFilePath = path.join('./excel', `CNF_${new Date().toISOString().split("T")[0]}.xlsx`);
-                const outputFilePathCsv = path.join(`./csv/CNF_${new Date().toISOString().split("T")[0]}.csv`);
+                const outputFilePath = path.join('./excel', "CNF_2024-01-03_old.xlsx");
+
                 if (!fs.existsSync('./excel')) {
                     fs.mkdirSync('./excel');
-                }
-                if (!fs.existsSync('./csv')) {
-                    fs.mkdirSync('./csv');
                 }
 
                 // Convertir les données en format approprié pour XLSX
@@ -183,38 +146,6 @@ async function processFiles() {
                 // Écrire le fichier Excel
                 XLSX.writeFile(workbook, outputFilePath);
                 console.log(`Fichier Excel exporté sous ${outputFilePath}`);
-                // Create CSV writer
-                const csvWriter = createCsvWriter({
-                    path: outputFilePathCsv,
-                    header: [
-                        { id: 'RESEAU', title: 'RESEAU' },
-                        { id: 'INSEE', title: 'INSEE' },
-                        { id: 'POSTAL', title: 'POSTAL' },
-                        { id: 'DEP', title: 'DEP' },
-                        { id: 'REG', title: 'REG' },
-                        { id: 'LAT', title: 'LAT' },
-                        { id: 'LON', title: 'LON' },
-                        { id: 'COMMUNE', title: 'COMMUNE' },
-                        { id: 'DATE', title: 'DATE' },
-                        { id: 'TOTAL', title: 'TOTAL' },
-                        { id: 'CBL', title: 'CBL' },
-                        { id: 'NBL', title: 'NBL' },
-                        { id: 'CCL', title: 'CCL' },
-                        { id: 'NCL', title: 'NCL' },
-                        { id: 'CBR', title: 'CBR' },
-                        { id: 'NBR', title: 'NBR' },
-                        { id: 'CCR', title: 'CCR' },
-                        { id: 'NCR', title: 'NCR' },
-                        { id: 'CONCLUSION', title: 'CONCLUSION' },
-                        //keep heur for csv file for verification and exclude it while inserting in sql table
-                        { id: 'HEURE', title: 'HEURE' },
-                    ]
-                });
-                // Write data to CSV
-                const chunk =  result.splice(0, maxRowsPerFile);
-                await csvWriter.writeRecords(chunk);
-                console.log(`Fichier CSV exporté sous ${outputFilePathCsv}`);
-
             }
         }
     } catch (err) {

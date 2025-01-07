@@ -3,11 +3,6 @@ from mysql.connector import Error
 import pandas as pd
 
 
-
-
-
-
-
 # Function to create a connection to the database
 def create_connection(host_name, user_name, user_password, db_name):
     connection = None
